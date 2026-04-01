@@ -1,63 +1,52 @@
 # ChainSentinel — Command Reference
 
-## First Time Setup
+## Getting Started
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/chainsentinel.git
-cd chainsentinel
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
-npm install
-cp .env.example .env
+git clone https://github.com/apu-saha-990/Project04-Chain-Sentinel.git
+cd chain_sentinel
+chmod +x setup.sh run.sh
+./setup.sh
 ```
 
-Edit `.env` and add your key:
-```
-ETHERSCAN_API_KEY=your_key_here
-```
+`setup.sh` handles everything — Python, Node, venv, packages, `.env`, data directories.
+Once it reports all green, you are ready.
 
 ---
 
-## Daily Use
+## Running ChainSentinel
 
-### Activate environment
-```bash
-cd chainsentinel
-source .venv/bin/activate
-```
-
-### Run the monitor
 ```bash
 ./run.sh
 ```
 
-### Run the tracer — interactive
-```bash
-./run.sh trace
-```
+Launches the interactive menu. Pick a number and hit Enter.
 
-### Run the tracer — specific address
-```bash
-./run.sh trace --address 0xABC123...
-```
+| Option | What it does |
+|--------|-------------|
+| 1 | Run Monitor — scan all wallets, detect spikes, generate reports |
+| 2 | Run Tracer — trace source of funds hop by hop |
+| 3 | Generate Report — build forensic .docx from all saved data |
+| 4 | Run Tests — verify everything is working |
+| Q | Quit |
 
-### Generate forensic .docx report
-```bash
-./run.sh report
-```
+---
 
-### Run tests
+## Direct Commands (no menu)
+
 ```bash
-./run.sh test
+./run.sh monitor                          # run monitor directly
+./run.sh trace                            # run tracer interactive
+./run.sh trace --address 0xABC123...      # trace a specific address
+./run.sh report                           # generate forensic .docx
+./run.sh test                             # run tests
 ```
 
 ---
 
 ## Wallet Management
 
-Add a wallet — edit directly:
+Add or edit wallets:
 ```bash
 nano config/wallets.json
 ```
@@ -78,6 +67,12 @@ print(match if match else 'Not found')
 "
 ```
 
+Fresh clone — create your wallet list from the example:
+```bash
+cp config/wallets.example.json config/wallets.json
+nano config/wallets.json
+```
+
 ---
 
 ## Reports
@@ -87,7 +82,7 @@ List all saved reports:
 ls -lh data/reports/eth_report_*.json
 ```
 
-List all saved summaries:
+List all summaries:
 ```bash
 ls -lh data/reports/eth_summary_*.txt
 ```
@@ -102,17 +97,17 @@ View latest summary:
 cat data/reports/$(ls data/reports/eth_summary_*.txt | tail -1)
 ```
 
-View latest report:
+View latest full report:
 ```bash
 cat data/reports/$(ls data/reports/eth_report_*.txt | tail -1)
 ```
 
-Count how many reports are stored:
+Count stored reports:
 ```bash
 ls data/reports/eth_report_*.json 2>/dev/null | wc -l
 ```
 
-Manually delete all reports and start fresh:
+Delete all reports and start fresh:
 ```bash
 rm -rf data/
 ```
@@ -121,48 +116,48 @@ rm -rf data/
 
 ## Git
 
-Push to GitHub:
+Push changes:
 ```bash
 git add -A
 git commit -m "your message"
 git push origin main
 ```
 
-Check what would be pushed (nothing sensitive):
+Check nothing sensitive is staged:
 ```bash
 git status
 ```
 
-> `data/` is in `.gitignore` — reports and traces are never pushed.
-> `.env` is in `.gitignore` — your API key is never pushed.
+> `data/` is gitignored — reports and traces never get pushed.
+> `.env` is gitignored — your API key never gets pushed.
+> `config/wallets.json` is gitignored — your wallet list never gets pushed.
 
 ---
 
 ## Troubleshooting
 
-**ETHERSCAN_API_KEY not set:**
+**API key not set or not working:**
 ```bash
-cat .env  # check it's there
-source .venv/bin/activate  # make sure venv is active
-```
-
-**Module not found:**
-```bash
+cat .env
 source .venv/bin/activate
-pip install -e .
 ```
 
-**Permission denied on run.sh:**
+**Permission denied:**
 ```bash
-chmod +x run.sh
+chmod +x run.sh setup.sh
 ```
 
-**Check Etherscan API is responding:**
+**Something broken — run setup to re-verify:**
+```bash
+./setup.sh
+```
+
+**Check Etherscan API is alive:**
 ```bash
 curl "https://api.etherscan.io/v2/api?chainid=1&module=account&action=balance&address=0x0000000000000000000000000000000000000000&tag=latest&apikey=YOUR_KEY"
 ```
 
-**Save run output to file:**
+**Save a run to log file:**
 ```bash
-python3 -m chainsentinel.cli.monitor_cli 2>&1 | tee run.log
+./run.sh monitor 2>&1 | tee run.log
 ```
