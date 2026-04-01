@@ -6,13 +6,13 @@ No CLI interaction here. Pure traversal engine.
 
 import logging
 from datetime import datetime, timezone
-from chainsentinel.config.settings import MAX_HOPS
-from chainsentinel.core.fetcher import (
+from config.settings import MAX_HOPS
+from core.fetcher import (
     get_all_normal_txs, get_all_usdt_txs,
     get_tx_count, get_eth_balance, get_contract_name
 )
-from chainsentinel.tracer.classifier import classify_address
-from chainsentinel.storage.wallet_store import load_known_wallets
+from tracer.classifier import classify_address
+from storage.wallet_store import load_known_wallets
 
 log = logging.getLogger("chainsentinel.hop_engine")
 

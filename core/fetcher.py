@@ -9,7 +9,7 @@ import time
 import logging
 import requests
 from dotenv import load_dotenv
-from chainsentinel.config.settings import (
+from config.settings import (
     ETHERSCAN_BASE, USDT_CONTRACT, REQUEST_DELAY
 )
 

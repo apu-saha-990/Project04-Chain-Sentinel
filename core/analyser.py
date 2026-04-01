@@ -6,8 +6,8 @@ No API calls here. No file I/O here. Just data in, analysis out.
 
 import json
 import logging
-from chainsentinel.config.settings import SPIKE_USD
-from chainsentinel.storage.wallet_store import load_known_wallets
+from config.settings import SPIKE_USD
+from storage.wallet_store import load_known_wallets
 
 log = logging.getLogger("chainsentinel.analyser")
 

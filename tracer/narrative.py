@@ -4,7 +4,7 @@ Builds a plain-english narrative from a completed hop trace result.
 Injected into the trace JSON under the key 'narrative'.
 """
 
-from chainsentinel.storage.wallet_store import load_known_wallets
+from storage.wallet_store import load_known_wallets
 
 
 def build_narrative(result: dict, eth_price: float) -> dict:

@@ -2,7 +2,7 @@
 chainsentinel/tests/test_analyser.py
 """
 import pytest
-from chainsentinel.core.analyser import analyse_wallet, build_batch_totals
+from core.analyser import analyse_wallet, build_batch_totals
 
 
 def _make_tx(to, value, is_error="0", timestamp=1700000000):

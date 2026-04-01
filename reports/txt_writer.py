@@ -6,7 +6,7 @@ Full detail — every wallet, every transaction, every address in full.
 
 from datetime import datetime, timezone
 from pathlib import Path
-from chainsentinel.config.settings import REPORTS_DIR
+from config.settings import REPORTS_DIR
 
 
 def write(report: dict, ts_slug: str) -> Path:

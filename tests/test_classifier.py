@@ -1,7 +1,7 @@
 """
 chainsentinel/tests/test_classifier.py
 """
-from chainsentinel.tracer.classifier import classify_address
+from tracer.classifier import classify_address
 
 
 def test_known_exchange_detected():

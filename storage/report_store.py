@@ -7,7 +7,7 @@ One place for all file I/O related to reports.
 import json
 import logging
 from pathlib import Path
-from chainsentinel.config.settings import REPORTS_DIR, MAX_REPORTS
+from config.settings import REPORTS_DIR, MAX_REPORTS
 
 log = logging.getLogger("chainsentinel.report_store")
 

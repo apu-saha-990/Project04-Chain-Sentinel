@@ -6,7 +6,7 @@ touching any analysis logic.
 
 import logging
 import requests
-from chainsentinel.config.settings import COINGECKO_URL
+from config.settings import COINGECKO_URL
 
 log = logging.getLogger("chainsentinel.pricer")
 

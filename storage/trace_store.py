@@ -6,7 +6,7 @@ Handles all trace file persistence.
 import json
 import logging
 from pathlib import Path
-from chainsentinel.config.settings import TRACES_DIR
+from config.settings import TRACES_DIR
 
 log = logging.getLogger("chainsentinel.trace_store")
 

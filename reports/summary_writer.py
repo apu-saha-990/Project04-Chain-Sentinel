@@ -5,8 +5,8 @@ Writes the plain-english run summary — what happened, what matters, what to do
 
 from datetime import datetime, timezone
 from pathlib import Path
-from chainsentinel.config.settings import REPORTS_DIR
-from chainsentinel.storage.wallet_store import load_known_wallets
+from config.settings import REPORTS_DIR
+from storage.wallet_store import load_known_wallets
 
 
 def write(report: dict, ts_slug: str) -> Path:

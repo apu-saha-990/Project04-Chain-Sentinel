@@ -13,8 +13,11 @@ dependencies = [
 ]
 
 [project.scripts]
-sentinel-monitor = "chainsentinel.cli.monitor_cli:run"
-sentinel-trace   = "chainsentinel.cli.trace_cli:run"
+sentinel-monitor = "cli.monitor_cli:run"
+sentinel-trace   = "cli.trace_cli:run"
+
+[tool.setuptools.packages.find]
+exclude = ["node_modules*", "data*", "tests*", "*.egg-info*"]
 
 [tool.ruff]
 line-length = 100

@@ -4,9 +4,9 @@ Classifies addresses as exchange, mixer, origin, or regular.
 Uses the exchange registry first, then heuristics.
 """
 
-from chainsentinel.config.exchanges import lookup
-from chainsentinel.config.settings import EXCHANGE_TX_THRESHOLD
-from chainsentinel.core.fetcher import get_contract_name
+from config.exchanges import lookup
+from config.settings import EXCHANGE_TX_THRESHOLD
+from core.fetcher import get_contract_name
 
 
 def classify_address(address: str, tx_count: int, eth_balance: float) -> dict:

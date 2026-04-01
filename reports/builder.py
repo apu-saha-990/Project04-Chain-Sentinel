@@ -5,10 +5,10 @@ Pure data assembly — no file I/O, no API calls.
 """
 
 from datetime import datetime, timezone, timedelta
-from chainsentinel.config.settings import WINDOW_HOURS
-from chainsentinel.core.analyser  import build_batch_totals, collect_all_spikes
-from chainsentinel.core.differ    import build_diff, finalise_diff, build_trend
-from chainsentinel.storage.report_store import load_previous_report, load_all_reports
+from config.settings import WINDOW_HOURS
+from core.analyser  import build_batch_totals, collect_all_spikes
+from core.differ    import build_diff, finalise_diff, build_trend
+from storage.report_store import load_previous_report, load_all_reports
 
 
 def build_report(results: list, eth_price: float) -> dict:

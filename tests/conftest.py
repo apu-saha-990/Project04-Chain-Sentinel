@@ -11,5 +11,5 @@ def mock_wallet_store():
     known = {
         "0xknownaddress": "Known-Test-Wallet",
     }
-    with patch("chainsentinel.storage.wallet_store.load_known_wallets", return_value=known):
+    with patch("storage.wallet_store.load_known_wallets", return_value=known):
         yield

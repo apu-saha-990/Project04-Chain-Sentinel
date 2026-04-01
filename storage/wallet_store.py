@@ -5,7 +5,7 @@ Single interface for reading and writing the master wallet list.
 
 import json
 import logging
-from chainsentinel.config.settings import WALLETS_FILE
+from config.settings import WALLETS_FILE
 
 log = logging.getLogger("chainsentinel.wallet_store")
 

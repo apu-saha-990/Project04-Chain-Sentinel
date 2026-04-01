@@ -12,15 +12,15 @@ import subprocess
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-from chainsentinel.config.settings   import WINDOW_HOURS, SPIKE_USD
-from chainsentinel.core.fetcher      import get_normal_txs, get_usdt_txs
-from chainsentinel.core.pricer       import get_eth_usd
-from chainsentinel.core.analyser     import analyse_wallet
-from chainsentinel.reports.builder   import build_report
-from chainsentinel.reports.txt_writer     import write as write_txt
-from chainsentinel.reports.summary_writer import write as write_summary
-from chainsentinel.storage.report_store  import save_report, prune_old_reports
-from chainsentinel.storage.wallet_store  import load_wallets
+from config.settings   import WINDOW_HOURS, SPIKE_USD
+from core.fetcher      import get_normal_txs, get_usdt_txs
+from core.pricer       import get_eth_usd
+from core.analyser     import analyse_wallet
+from reports.builder   import build_report
+from reports.txt_writer     import write as write_txt
+from reports.summary_writer import write as write_summary
+from storage.report_store  import save_report, prune_old_reports
+from storage.wallet_store  import load_wallets
 
 logging.basicConfig(
     level=logging.INFO,

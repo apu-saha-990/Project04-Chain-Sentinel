@@ -2,7 +2,7 @@
 chainsentinel/tests/test_differ.py
 """
 import pytest
-from chainsentinel.core.differ import build_diff, finalise_diff, build_trend
+from core.differ import build_diff, finalise_diff, build_trend
 
 
 def _wallet(addr, label, total_in, total_out, tx_n=1, tx_u=0):

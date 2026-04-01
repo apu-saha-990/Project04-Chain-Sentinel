@@ -12,12 +12,12 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from chainsentinel.core.pricer         import get_eth_usd
-from chainsentinel.tracer.hop_engine   import run_trace
-from chainsentinel.tracer.narrative    import build_narrative
-from chainsentinel.storage.trace_store import save_trace
-from chainsentinel.storage.wallet_store import load_known_wallets, add_wallet
-from chainsentinel.config.settings    import MAX_HOPS
+from core.pricer         import get_eth_usd
+from tracer.hop_engine   import run_trace
+from tracer.narrative    import build_narrative
+from storage.trace_store import save_trace
+from storage.wallet_store import load_known_wallets, add_wallet
+from config.settings    import MAX_HOPS
 
 logging.basicConfig(
     level=logging.INFO,
