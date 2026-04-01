@@ -1,0 +1,12 @@
+{
+  "name": "chainsentinel-reports",
+  "version": "1.0.0",
+  "description": "ChainSentinel forensic report generator",
+  "main": "reports/docx_writer.js",
+  "scripts": {
+    "report": "node reports/docx_writer.js"
+  },
+  "dependencies": {
+    "docx": "^9.6.1"
+  }
+}
