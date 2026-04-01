@@ -18,7 +18,7 @@ const {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   Header, Footer, AlignmentType, HeadingLevel, BorderStyle, WidthType,
   ShadingType, VerticalAlign, PageBreak, LevelFormat,
-  TabStopType, TabStopPosition,
+  TabStopType, TabStopPosition, SimpleField,
 } = require("docx");
 
 // ── Config ───────────────────────────────────────────────────────────────────
@@ -480,12 +480,143 @@ function buildTimeline(reports) {
   return items;
 }
 
+function buildAnalystNote(w, allSpikes) {
+  // Build a plain-english paragraph interpreting this wallet's data
+  const senders     = [...new Set(w.spikes.map(s => s.from))];
+  const ethSpikes   = w.spikes.filter(s => s.token === "ETH");
+  const usdtSpikes  = w.spikes.filter(s => s.token === "USDT");
+  const topSender   = senders.length > 0
+    ? senders.sort((a, b) => {
+        const aTotal = w.spikes.filter(s => s.from === a).reduce((t, s) => t + s.amount_usd, 0);
+        const bTotal = w.spikes.filter(s => s.from === b).reduce((t, s) => t + s.amount_usd, 0);
+        return bTotal - aTotal;
+      })[0]
+    : null;
+  const topSenderTotal   = topSender ? w.spikes.filter(s => s.from === topSender).reduce((t, s) => t + s.amount_usd, 0) : 0;
+  const topSenderTxCount = topSender ? w.spikes.filter(s => s.from === topSender).length : 0;
+  const topSenderPct     = w.total_in > 0 ? Math.round((topSenderTotal / w.total_in) * 100) : 0;
+
+  // Timing analysis — how tight is the window?
+  let timingNote = "";
+  if (w.spikes.length > 1) {
+    const timestamps = w.spikes.map(s => s.timestamp).sort((a, b) => a - b);
+    const windowMins = Math.round((timestamps[timestamps.length - 1] - timestamps[0]) / 60);
+    if (windowMins < 120) {
+      timingNote = ` All ${w.spikes.length} transactions occurred within a ${windowMins}-minute window, indicating automated or coordinated batch execution.`;
+    }
+  }
+
+  // Dominant sender note
+  let senderNote = "";
+  if (topSender && topSenderPct >= 50) {
+    senderNote = ` A single sender (${topSender.slice(0, 10)}...) was responsible for ${topSenderTxCount} transaction(s) totalling ${fmtUSD(topSenderTotal)}, representing ${topSenderPct}% of total inbound volume.`;
+  } else if (senders.length > 1) {
+    senderNote = ` Inbound funds originated from ${senders.length} distinct sender addresses.`;
+  }
+
+  // Token mix note
+  let tokenNote = "";
+  if (ethSpikes.length > 0 && usdtSpikes.length > 0) {
+    tokenNote = ` Inbound transfers include both ETH and USDT, suggesting coordinated movement across asset types.`;
+  }
+
+  // Net flow note
+  const net     = w.total_in - w.total_out;
+  const flowDir = net > 0 ? `accumulating ${fmtUSD(net)}` : `disbursing ${fmtUSD(Math.abs(net))}`;
+
+  const noteText = `This wallet received ${fmtUSD(w.total_in)} during the monitoring period across ${w.tx_count.toLocaleString()} transactions, with ${w.spike_count} individual transfer(s) exceeding the $50,000 alert threshold.${senderNote}${timingNote}${tokenNote} The net flow position indicates the wallet is ${flowDir} over the monitored period. This activity pattern is consistent with a controlled collection address operating within a coordinated financial pipeline.`;
+
+  return [
+    h3("Analyst Note"),
+    new Table({
+      width: { size: 9360, type: WidthType.DXA },
+      columnWidths: [9360],
+      rows: [new TableRow({ children: [new TableCell({
+        width: { size: 9360, type: WidthType.DXA },
+        shading: { fill: "EAF4FB", type: ShadingType.CLEAR },
+        margins: { top: 140, bottom: 140, left: 200, right: 200 },
+        borders: {
+          top:    { style: BorderStyle.SINGLE, size: 4, color: C.midBlue },
+          bottom: { style: BorderStyle.SINGLE, size: 4, color: C.midBlue },
+          left:   { style: BorderStyle.THICK,  size: 12, color: C.midBlue },
+          right:  { style: BorderStyle.SINGLE, size: 4, color: C.midBlue },
+        },
+        children: [new Paragraph({ children: [new TextRun({ text: noteText, size: 20, font: "Arial", color: C.black, italics: true })] })],
+      })]})],
+    }),
+  ];
+}
+
+function buildSenderCrossRef(w, allSpikes) {
+  // For each sender, find ALL tracked wallets they sent to
+  const senders = [...new Set(w.spikes.map(s => s.from))];
+  const crossRefs = [];
+
+  for (const sender of senders) {
+    const txsToThisWallet = w.spikes.filter(s => s.from === sender);
+    const totalToThis     = txsToThisWallet.reduce((t, s) => t + s.amount_usd, 0);
+
+    // Find other wallets this sender hit
+    const otherDestinations = [...new Set(
+      allSpikes
+        .filter(s => s.from === sender && s.wallet?.toLowerCase() !== w.address.toLowerCase())
+        .map(s => s.wallet_label)
+    )];
+
+    crossRefs.push({ sender, txsToThisWallet, totalToThis, otherDestinations });
+  }
+
+  const items = [h3("Sender Addresses")];
+  const border  = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
+  const borders = { top: border, bottom: border, left: border, right: border };
+
+  for (const ref of crossRefs.sort((a, b) => b.totalToThis - a.totalToThis)) {
+    const multiHit = ref.otherDestinations.length > 0;
+
+    items.push(new Paragraph({
+      children: [
+        new TextRun({ text: ref.sender, size: 18, font: "Courier New", color: C.midBlue }),
+        new TextRun({
+          text: `  —  ${ref.txsToThisWallet.length} tx(s)  |  ${fmtUSD(ref.totalToThis)}`,
+          size: 18, font: "Arial", color: C.darkGrey,
+        }),
+      ],
+      spacing: { after: 40 },
+    }));
+
+    if (multiHit) {
+      items.push(new Paragraph({
+        children: [
+          new TextRun({
+            text: `  ↳ Also sent to: ${ref.otherDestinations.join(", ")}`,
+            size: 17, font: "Arial", color: C.red, bold: true,
+          }),
+        ],
+        spacing: { after: 80 },
+        indent: { left: 360 },
+      }));
+    } else {
+      items.push(new Paragraph({ children: [new TextRun("")], spacing: { after: 40 } }));
+    }
+  }
+
+  return items;
+}
+
 function buildWalletProfiles(agg, reports) {
   const items = [h1("3. Wallet Profiles")];
   items.push(para(
     "This section provides a forensic profile of each wallet that recorded activity during the investigation period. " +
-    "Profiles include cumulative volume across all monitoring cycles, transaction counts, and spike activity."
+    "Profiles include cumulative volume across all monitoring cycles, per-run activity breakdown, spike detail, " +
+    "sender cross-referencing, and an analyst interpretation."
   ));
+
+  // Build sender -> [wallet labels] cross-reference map
+  const senderDestMap = {};
+  for (const s of agg.allSpikes) {
+    if (!senderDestMap[s.from]) senderDestMap[s.from] = new Set();
+    senderDestMap[s.from].add(s.wallet_label);
+  }
 
   // Aggregate per wallet across all reports
   const wallets = Object.values(agg.walletHistory)
@@ -493,69 +624,113 @@ function buildWalletProfiles(agg, reports) {
       const active = w.snapshots.filter(s => s.total_in_usd > 0 || s.total_out_usd > 0);
       if (!active.length) return null;
       return {
-        label:        w.label,
-        address:      w.address,
-        total_in:     active.reduce((s, r) => s + (r.total_in_usd || 0), 0),
-        total_out:    active.reduce((s, r) => s + (r.total_out_usd || 0), 0),
-        eth_in:       active.reduce((s, r) => s + (r.eth_in || 0), 0),
-        eth_out:      active.reduce((s, r) => s + (r.eth_out || 0), 0),
-        usdt_in:      active.reduce((s, r) => s + (r.usdt_in || 0), 0),
-        usdt_out:     active.reduce((s, r) => s + (r.usdt_out || 0), 0),
-        spike_count:  active.reduce((s, r) => s + (r.spike_count || 0), 0),
-        tx_count:     active.reduce((s, r) => s + (r.tx_count_normal || 0) + (r.tx_count_usdt || 0), 0),
+        label:          w.label,
+        address:        w.address,
+        total_in:       active.reduce((s, r) => s + (r.total_in_usd  || 0), 0),
+        total_out:      active.reduce((s, r) => s + (r.total_out_usd || 0), 0),
+        eth_in:         active.reduce((s, r) => s + (r.eth_in  || 0), 0),
+        eth_out:        active.reduce((s, r) => s + (r.eth_out || 0), 0),
+        usdt_in:        active.reduce((s, r) => s + (r.usdt_in  || 0), 0),
+        usdt_out:       active.reduce((s, r) => s + (r.usdt_out || 0), 0),
+        spike_count:    active.reduce((s, r) => s + (r.spike_count || 0), 0),
+        tx_count:       active.reduce((s, r) => s + (r.tx_count_normal || 0) + (r.tx_count_usdt || 0), 0),
         active_periods: active.length,
-        first_seen:   active[0]?.report_date,
-        last_seen:    active[active.length - 1]?.report_date,
-        spikes:       agg.allSpikes.filter(s => s.wallet?.toLowerCase() === w.address.toLowerCase()),
-        ep:           active[active.length - 1]?.eth_price || 0,
+        all_snapshots:  w.snapshots,   // ALL snapshots including inactive for chronological table
+        first_seen:     active[0]?.report_date,
+        last_seen:      active[active.length - 1]?.report_date,
+        spikes:         agg.allSpikes.filter(s => s.wallet?.toLowerCase() === w.address.toLowerCase()),
+        ep:             active[active.length - 1]?.eth_price || 0,
       };
     })
     .filter(Boolean)
     .sort((a, b) => b.total_in - a.total_in);
 
+  const border  = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
+  const borders = { top: border, bottom: border, left: border, right: border };
+
   for (const [i, w] of wallets.entries()) {
     items.push(h2(`3.${i + 1}  ${w.label}`));
     items.push(labelValue("Address", w.address));
     items.push(labelValue("First Active", fmtDate(w.first_seen)));
-    items.push(labelValue("Last Active", fmtDate(w.last_seen)));
+    items.push(labelValue("Last Active",  fmtDate(w.last_seen)));
     items.push(labelValue("Active Monitoring Cycles", String(w.active_periods)));
     items.push(labelValue("Total Transactions", String(w.tx_count)));
     items.push(...blank(1));
 
-    // Volume summary table
-    const border = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
-    const borders = { top: border, bottom: border, left: border, right: border };
+    // ── Volume summary table ───────────────────────────────────────────────
     const volRows = [
-      ["Metric", "Amount"],
-      ["Total Inbound (USD)",  fmtUSD(w.total_in)],
-      ["Total Outbound (USD)", fmtUSD(w.total_out)],
-      ["Net Flow (USD)",       fmtUSD(w.total_in - w.total_out)],
-      ["ETH Received",         fmtETH(w.eth_in) + `  (${fmtUSD(w.eth_in * w.ep)})`],
-      ["ETH Sent",             fmtETH(w.eth_out) + `  (${fmtUSD(w.eth_out * w.ep)})`],
-      ["USDT Received",        fmtUSD(w.usdt_in)],
-      ["USDT Sent",            fmtUSD(w.usdt_out)],
+      ["Metric",                 "Amount"],
+      ["Total Inbound (USD)",    fmtUSD(w.total_in)],
+      ["Total Outbound (USD)",   fmtUSD(w.total_out)],
+      ["Net Flow (USD)",         fmtUSD(w.total_in - w.total_out)],
+      ["ETH Received",           fmtETH(w.eth_in)  + `  (${fmtUSD(w.eth_in  * w.ep)})`],
+      ["ETH Sent",               fmtETH(w.eth_out) + `  (${fmtUSD(w.eth_out * w.ep)})`],
+      ["USDT Received",          fmtUSD(w.usdt_in)],
+      ["USDT Sent",              fmtUSD(w.usdt_out)],
       ["Large Tx Alerts (>$50k)", String(w.spike_count)],
     ];
 
-    const tbl = new Table({
+    items.push(new Table({
       width: { size: 6000, type: WidthType.DXA },
       columnWidths: [3000, 3000],
       rows: volRows.map((row, ri) => new TableRow({ children: row.map((cell, ci) => new TableCell({
         width: { size: 3000, type: WidthType.DXA }, borders,
-        shading: ri === 0 ? { fill: C.midBlue, type: ShadingType.CLEAR } : ci === 0 ? { fill: C.lightGrey, type: ShadingType.CLEAR } : undefined,
+        shading: ri === 0 ? { fill: C.midBlue, type: ShadingType.CLEAR }
+               : ci === 0 ? { fill: C.lightGrey, type: ShadingType.CLEAR }
+               : undefined,
         margins: { top: 80, bottom: 80, left: 120, right: 120 },
         children: [new Paragraph({ children: [new TextRun({
-          text: cell,
-          size: 20,
+          text: cell, size: 20,
           bold: ri === 0 || ci === 0,
-          color: ri === 0 ? C.white : (ci === 1 && ri === 3) ? (w.total_in > w.total_out ? C.red : C.darkBlue) : C.black,
+          color: ri === 0 ? C.white
+               : (ci === 1 && ri === 3) ? (w.total_in > w.total_out ? C.red : C.darkBlue)
+               : C.black,
           font: "Arial",
         })] })],
       }))})),
-    });
-    items.push(tbl);
+    }));
 
-    // Spike detail
+    // ── Per-run chronological breakdown ────────────────────────────────────
+    if (w.all_snapshots.length > 1) {
+      items.push(...blank(1));
+      items.push(h3("Activity by Monitoring Run"));
+      const colW = [2200, 2000, 2000, 1560, 1600];
+      const chronoRows = [
+        new TableRow({ children: [
+          new TableCell({ width: { size: colW[0], type: WidthType.DXA }, borders, shading: { fill: C.darkBlue, type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 100, right: 100 },
+            children: [new Paragraph({ children: [new TextRun({ text: "Report Date", size: 17, bold: true, color: C.white, font: "Arial" })] })] }),
+          new TableCell({ width: { size: colW[1], type: WidthType.DXA }, borders, shading: { fill: C.darkBlue, type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 100, right: 100 },
+            children: [new Paragraph({ children: [new TextRun({ text: "Total IN", size: 17, bold: true, color: C.white, font: "Arial" })] })] }),
+          new TableCell({ width: { size: colW[2], type: WidthType.DXA }, borders, shading: { fill: C.darkBlue, type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 100, right: 100 },
+            children: [new Paragraph({ children: [new TextRun({ text: "Total OUT", size: 17, bold: true, color: C.white, font: "Arial" })] })] }),
+          new TableCell({ width: { size: colW[3], type: WidthType.DXA }, borders, shading: { fill: C.darkBlue, type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 100, right: 100 },
+            children: [new Paragraph({ children: [new TextRun({ text: "TXs", size: 17, bold: true, color: C.white, font: "Arial" })] })] }),
+          new TableCell({ width: { size: colW[4], type: WidthType.DXA }, borders, shading: { fill: C.darkBlue, type: ShadingType.CLEAR }, margins: { top: 80, bottom: 80, left: 100, right: 100 },
+            children: [new Paragraph({ children: [new TextRun({ text: "Spikes", size: 17, bold: true, color: C.white, font: "Arial" })] })] }),
+        ]}),
+        ...w.all_snapshots.map((snap, si) => {
+          const active = snap.total_in_usd > 0 || snap.total_out_usd > 0;
+          const shade  = si % 2 === 1 ? { fill: C.lightGrey, type: ShadingType.CLEAR } : undefined;
+          const dt     = (snap.report_date || "").slice(0, 10);
+          const txs    = (snap.tx_count_normal || 0) + (snap.tx_count_usdt || 0);
+          return new TableRow({ children: [
+            new TableCell({ width: { size: colW[0], type: WidthType.DXA }, borders, shading: shade, margins: { top: 60, bottom: 60, left: 100, right: 100 },
+              children: [new Paragraph({ children: [new TextRun({ text: dt, size: 17, font: "Arial" })] })] }),
+            new TableCell({ width: { size: colW[1], type: WidthType.DXA }, borders, shading: shade, margins: { top: 60, bottom: 60, left: 100, right: 100 },
+              children: [new Paragraph({ children: [new TextRun({ text: active ? fmtUSD(snap.total_in_usd) : "—", size: 17, color: active ? C.red : C.midGrey, font: "Arial" })] })] }),
+            new TableCell({ width: { size: colW[2], type: WidthType.DXA }, borders, shading: shade, margins: { top: 60, bottom: 60, left: 100, right: 100 },
+              children: [new Paragraph({ children: [new TextRun({ text: active ? fmtUSD(snap.total_out_usd) : "—", size: 17, color: active ? C.black : C.midGrey, font: "Arial" })] })] }),
+            new TableCell({ width: { size: colW[3], type: WidthType.DXA }, borders, shading: shade, margins: { top: 60, bottom: 60, left: 100, right: 100 },
+              children: [new Paragraph({ children: [new TextRun({ text: txs > 0 ? String(txs) : "—", size: 17, font: "Arial" })] })] }),
+            new TableCell({ width: { size: colW[4], type: WidthType.DXA }, borders, shading: shade, margins: { top: 60, bottom: 60, left: 100, right: 100 },
+              children: [new Paragraph({ children: [new TextRun({ text: snap.spike_count > 0 ? String(snap.spike_count) : "—", size: 17, bold: snap.spike_count > 0, color: snap.spike_count > 0 ? C.red : C.midGrey, font: "Arial" })] })] }),
+          ]});
+        }),
+      ];
+      items.push(new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: colW, rows: chronoRows }));
+    }
+
+    // ── Spike detail ───────────────────────────────────────────────────────
     if (w.spikes.length > 0) {
       items.push(...blank(1));
       items.push(h3(`Large Inbound Transactions (${w.spikes.length} alert${w.spikes.length !== 1 ? "s" : ""})`));
@@ -566,30 +741,26 @@ function buildWalletProfiles(agg, reports) {
       ));
       items.push(...blank(1));
 
-      const rows = w.spikes
+      const spikeRows = w.spikes
         .sort((a, b) => b.amount_usd - a.amount_usd)
         .map(s => {
-          const dt = new Date(s.timestamp * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC";
+          const dt  = new Date(s.timestamp * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC";
           const amt = s.token === "ETH"
             ? `${fmtETH(s.amount_eth)} (${fmtUSD(s.amount_usd)})`
             : fmtUSD(s.amount_usd);
           return { date: dt, amount: amt, token: s.token, hash: s.hash };
         });
+      items.push(txTable(spikeRows));
 
-      items.push(txTable(rows));
+      // ── Sender cross-reference ─────────────────────────────────────────
       items.push(...blank(1));
-      items.push(h3("Sender Addresses"));
-      const senders = [...new Set(w.spikes.map(s => s.from))];
-      for (const sender of senders) {
-        const txsFromSender = w.spikes.filter(s => s.from === sender);
-        items.push(new Paragraph({
-          children: [
-            new TextRun({ text: sender, size: 18, font: "Courier New", color: C.midBlue }),
-            new TextRun({ text: `  —  ${txsFromSender.length} tx(s), total ${fmtUSD(txsFromSender.reduce((s, t) => s + t.amount_usd, 0))}`, size: 18, font: "Arial", color: C.darkGrey }),
-          ],
-          spacing: { after: 80 },
-        }));
-      }
+      items.push(...buildSenderCrossRef(w, agg.allSpikes));
+    }
+
+    // ── Analyst note ───────────────────────────────────────────────────────
+    if (w.spikes.length > 0) {
+      items.push(...blank(1));
+      items.push(...buildAnalystNote(w, agg.allSpikes));
     }
 
     items.push(divider());
@@ -946,7 +1117,10 @@ async function main() {
           children: [
             new Paragraph({
               children: [
-                new TextRun({ text: `Generated: ${NOW.toISOString().slice(0, 19)} UTC  |  FOR ATTORNEY USE ONLY`, size: 16, color: C.midGrey, font: "Arial" }),
+                new TextRun({ text: `Generated: ${NOW.toISOString().slice(0, 19)} UTC  |  FOR ATTORNEY USE ONLY  |  Page `, size: 16, color: C.midGrey, font: "Arial" }),
+                new SimpleField("PAGE"),
+                new TextRun({ text: " of ", size: 16, color: C.midGrey, font: "Arial" }),
+                new SimpleField("NUMPAGES"),
               ],
               border: { top: { style: BorderStyle.SINGLE, size: 4, color: C.lightBlue } },
             }),
