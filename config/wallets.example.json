@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "description": "ChainSentinel — ETH wallet master list",
+  "wallets": [
+    {"address": "0xADDRESS_1_HERE", "label": "Wallet-Label-1"},
+    {"address": "0xADDRESS_2_HERE", "label": "Wallet-Label-2"},
+    {"address": "0xADDRESS_3_HERE", "label": "Wallet-Label-3"}
+  ]
+}
