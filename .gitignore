@@ -27,3 +27,7 @@ package-lock.json
 Thumbs.db
 config/wallets.json
 config/wallets.json
+__pycache__/
+*.pyc
+chainsentinel.egg-info/
+"{config,core,reports,tracer,storage,cli,tests}"
